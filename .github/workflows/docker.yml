@@ -104,3 +104,27 @@ jobs:
           done
           curl -fsS http://localhost:8000/health
           curl -fsS http://localhost:8000/version
+  update-config:
+    needs: deploy-production
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/tasks-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config
+      - name: Calculer la version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+      - name: Mettre à jour le manifeste
+        run: bash scripts/set-image-tag.sh config/k8s/deployment.yaml "$VERSION"
+      - name: Commit et push dans tasks-config
+        run: |
+          cd config
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy: tasks-api $VERSION"
+          git push
